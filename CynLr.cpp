@@ -1,4 +1,4 @@
-#include <iostream>
+ #include <iostream>
 #include <string>
 #include "DataGeneration.h"
 #include "FilterBlock.h"
@@ -207,17 +207,19 @@ int main(int argc, char* argv[]) {
     dataGen.reset();
 
     std::cout << "Processing pairs through FilterBlock...\n";
-    std::cout << "Row | Pair | DataGen Pair | Filter Output | Buffer Size\n";
-    std::cout << "----+------+--------------+---------------+-------------\n";
+    std::cout << "Row | Cycle | Pair | DataGen Pair | Filter Output | Buffer Size\n";
+    std::cout << "----+-------+------+--------------+---------------+-------------\n";
 
     int currentRow = 0;
     int pairNum = 0;
+    int cycleNum = 0;
     int pairsPerRow = (dataGen.getNumColumns() + 1) / 2;
     std::vector<std::pair<uint8_t, uint8_t>> filteredResults;
     bool showDetailedOutput = true;
 
     while (!dataGen.isFinished()) {
         pairNum++;
+        cycleNum++;
         auto dataPair = dataGen.getNextPair();
         auto [dp1, dp2] = dataPair;
 
@@ -228,16 +230,16 @@ int main(int argc, char* argv[]) {
         // Display the pair if we're still showing detailed output
         if (showDetailedOutput && pairNum <= 15) {
             if (fp1 != 0 || fp2 != 0) {
-                printf("%4d | %4d | [%3d, %3d]   | [%3d, %3d]    | %11zu\n",
-                    currentRow, pairNum, dp1, dp2, fp1, fp2, filter.getBufferSize());
+                printf("%4d | %5d | %4d | [%3d, %3d]   | [%3d, %3d]    | %11zu\n",
+                    currentRow, cycleNum, pairNum, dp1, dp2, fp1, fp2, filter.getBufferSize());
                 filteredResults.push_back(filteredPair);
             } else {
-                printf("%4d | %4d | [%3d, %3d]   | (buffering)   | %11zu\n",
-                    currentRow, pairNum, dp1, dp2, filter.getBufferSize());
+                printf("%4d | %5d | %4d | [%3d, %3d]   | (buffering)   | %11zu\n",
+                    currentRow, cycleNum, pairNum, dp1, dp2, filter.getBufferSize());
             }
         } else if (showDetailedOutput && pairNum == 15) {
             // Transition point - show ellipsis but still process
-            std::cout << "----+------+--------------+---------------+------------ ...\n";
+            std::cout << "----+-------+------+--------------+---------------+------------ ...\n";
             showDetailedOutput = false;
         }
 
@@ -254,26 +256,30 @@ int main(int argc, char* argv[]) {
             // Display endOfRow output if still in detailed mode
             if (showDetailedOutput) {
                 for (size_t i = 0; i < endRowResults.size(); i++) {
+                    cycleNum++;
                     auto [efp1, efp2] = endRowResults[i];
-                    printf("%4d | (END) | -----------   | [%3d, %3d]    | (cleared)\n",
-                        currentRow, efp1, efp2);
+                    printf("%4d | %5d | (END)| -----------   | [%3d, %3d]    | (cleared)\n",
+                        currentRow, cycleNum, efp1, efp2);
                     filteredResults.push_back(endRowResults[i]);
                 }
             } else {
                 // Still collect results but don't display
                 for (const auto& result : endRowResults) {
+                    cycleNum++;
                     filteredResults.push_back(result);
                 }
             }
 
             currentRow++;
             pairNum = 0;
+            cycleNum = 0;
         }
     }
 
     // Process any remaining pairs after loop ends
     while (!dataGen.isFinished()) {
         pairNum++;
+        cycleNum++;
         auto dataPair = dataGen.getNextPair();
         auto filteredPair = filter.addPairAndFilter(dataPair);
 
@@ -285,10 +291,12 @@ int main(int argc, char* argv[]) {
         if (pairNum == pairsPerRow) {
             auto endRowResults = filter.endOfRow();
             for (const auto& result : endRowResults) {
+                cycleNum++;
                 filteredResults.push_back(result);
             }
             currentRow++;
             pairNum = 0;
+            cycleNum = 0;
         }
     }
 
