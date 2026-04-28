@@ -27,6 +27,7 @@ void FilterBlock::initialize(int numColsPerRow) {
     // Total = 5 pairs needed
     // So i must be in range [2, pairsPerRow-3]
 
+    // In pair space, the center pair needs 2 pairs of left context and 2 of right context.
     firstFilterablePairInRow = 2;  // 3rd pair in row (0-based index 2)
     lastFilterablePairInRow = pairsPerRow - 3;  // Last filterable pair in row
 
@@ -69,7 +70,9 @@ double FilterBlock::filterPixel(const std::vector<uint8_t>& neighborhood) {
 // Add a new pair of pixels and filter if we have enough data
 std::pair<uint8_t, uint8_t> FilterBlock::addPairAndFilter(const std::pair<uint8_t, uint8_t>& newPair) {
     cycleCount++;
+    // pairIndexInRow is tracked for observability/debugging from the caller side.
     int pairIndex = pairIndexInRow++;  // Get current index in row, then increment
+    (void)pairIndex;
 
     // Add the new pair to buffer
     pixelBuffer.push_back(newPair);
@@ -81,7 +84,9 @@ std::pair<uint8_t, uint8_t> FilterBlock::addPairAndFilter(const std::pair<uint8_
         return {0, 0};
     }
 
-    // We need at least 6 pairs in buffer to safely filter and rotate
+    // We start filtering once 6 pairs arrive:
+    // - filter the center of the first 5-pair window
+    // - drop one pair to slide forward by one pair
     if (pixelBuffer.size() < 6) {
         // Keep accumulating data
         return {0, 0};
@@ -97,7 +102,9 @@ std::pair<uint8_t, uint8_t> FilterBlock::addPairAndFilter(const std::pair<uint8_
         allPixels.push_back(pair.second);
     }
 
-    // Filter the 3rd pair in buffer (pixels at indices 4 and 5)
+    // The "center pair" of the active window is pair #3 in buffer (0-based index 2).
+    // Convolution is done per pixel using 9 neighbors (4 left + center + 4 right).
+    // For pair output we compute two overlapping neighborhoods, shifted by 1 pixel.
     std::vector<uint8_t> neighborhood1(allPixels.begin(), allPixels.begin() + 9);
     uint8_t filteredPixel1 = static_cast<uint8_t>(
         std::max(0.0, std::min(255.0, filterPixel(neighborhood1)))
@@ -108,7 +115,7 @@ std::pair<uint8_t, uint8_t> FilterBlock::addPairAndFilter(const std::pair<uint8_
         std::max(0.0, std::min(255.0, filterPixel(neighborhood2)))
     );
 
-    // Remove the first pair and keep 5+ pairs for the next cycle
+    // Slide the window by one pair for the next input cycle.
     pixelBuffer.erase(pixelBuffer.begin());
 
     return {filteredPixel1, filteredPixel2};
@@ -124,6 +131,9 @@ std::vector<std::pair<uint8_t, uint8_t>> FilterBlock::endOfRow() {
     // Only filter in endOfRow if the last addPairAndFilter() call didn't already filter
     // This happens when we have exactly 5 pairs and no 6th pair came
     if (pixelBuffer.size() == 5 && !lastCallFiltered) {
+        // Row ended exactly when a complete 5-pair window became available,
+        // but addPairAndFilter did not run the 6-pair streaming path yet.
+        // Emit this final filterable center pair before clearing row state.
         std::vector<uint8_t> allPixels;
         for (const auto& pair : pixelBuffer) {
             allPixels.push_back(pair.first);

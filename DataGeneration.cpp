@@ -9,6 +9,80 @@ DataGenerationBlock::DataGenerationBlock()
     : currentRow(0), currentCol(0), numColumns(0), numRows(0) {
 }
 
+// Load CSV file
+bool DataGenerationBlock::loadCSV(const char* filename) {
+    std::ifstream file(filename);
+
+    if (!file.is_open()) {
+        std::cerr << "ERROR: Could not open file: " << filename << "\n";
+        std::cerr << "Make sure the file exists in the same folder as your .exe\n";
+        return false;
+    }
+
+    std::string line;
+    csvData.clear();
+    int lineNumber = 0;
+
+    // Read each line
+    while (std::getline(file, line)) {
+        lineNumber++;
+
+        // Skip empty lines
+        if (line.empty() || line.find_first_not_of(" \t\r\n") == std::string::npos) {
+            continue;
+        }
+
+        std::vector<uint8_t> row = parseLine(line);
+
+        if (row.empty()) {
+            std::cerr << "Warning: Line " << lineNumber << " is empty or invalid.\n";
+            continue;
+        }
+
+        // Detect number of columns from first row
+        if (csvData.empty()) {
+            numColumns = row.size();
+            std::cout << "Auto-detected columns (m): " << numColumns << "\n";
+        }
+
+        // Warning only; we still accept ragged rows and stream whatever data is present.
+        if (row.size() != (size_t)numColumns) {
+            std::cerr << "Warning: Line " << lineNumber << " has " << row.size()
+                << " columns (expected " << numColumns << ")\n";
+        }
+
+        csvData.push_back(row);
+    }
+
+    file.close();
+
+    // Final validation
+    if (csvData.empty()) {
+        std::cerr << "ERROR: No valid data found in CSV file.\n";
+        return false;
+    }
+
+    numRows = csvData.size();
+
+    // Pairing logic consumes 2 pixels at a time, so force an even total count.
+    size_t totalPixels = 0;
+    for (const auto& r : csvData) totalPixels += r.size();
+    if (totalPixels % 2 == 1) {
+        csvData.push_back(std::vector<uint8_t>{0});
+        numRows = csvData.size();
+        std::cout << "Note: Total pixels was odd. Added a padding 0 as the last pixel.\n";
+        totalPixels += 1;
+    }
+
+    std::cout << "Successfully loaded CSV:\n";
+    std::cout << "  - Rows: " << numRows << "\n";
+    std::cout << "  - Columns: " << numColumns << "\n";
+    std::cout << "  - Total pixels: " << totalPixels << "\n";
+    std::cout << "  - Total pairs: " << ((totalPixels + 1) / 2) << "\n\n";
+
+    return true;
+}
+
 // Generate random data
 bool DataGenerationBlock::loadRandom(int rows, int cols) {
     if (rows <= 0 || cols <= 0) {
@@ -72,6 +146,7 @@ std::vector<uint8_t> DataGenerationBlock::parseLine(const std::string& line) {
         value.erase(value.find_last_not_of(" \t\r\n") + 1);
 
         if (!value.empty()) {
+            // stoi intentionally allows signed numeric text; values are clamped below.
             int num = std::stoi(value);
 
             // Validate range (0-255 for uint8_t)
@@ -87,80 +162,6 @@ std::vector<uint8_t> DataGenerationBlock::parseLine(const std::string& line) {
     return row;
 }
 
-// Load CSV file
-bool DataGenerationBlock::loadCSV(const char* filename) {
-    std::ifstream file(filename);
-
-    if (!file.is_open()) {
-        std::cerr << "ERROR: Could not open file: " << filename << "\n";
-        std::cerr << "Make sure the file exists in the same folder as your .exe\n";
-        return false;
-    }
-
-    std::string line;
-    csvData.clear();
-    int lineNumber = 0;
-
-    // Read each line
-    while (std::getline(file, line)) {
-        lineNumber++;
-
-        // Skip empty lines
-        if (line.empty() || line.find_first_not_of(" \t\r\n") == std::string::npos) {
-            continue;
-        }
-
-        std::vector<uint8_t> row = parseLine(line);
-
-        if (row.empty()) {
-            std::cerr << "Warning: Line " << lineNumber << " is empty or invalid.\n";
-            continue;
-        }
-
-        // Detect number of columns from first row
-        if (csvData.empty()) {
-            numColumns = row.size();
-            std::cout << "Auto-detected columns (m): " << numColumns << "\n";
-        }
-
-        // Warning if row has different number of columns
-        if (row.size() != (size_t)numColumns) {
-            std::cerr << "Warning: Line " << lineNumber << " has " << row.size()
-                << " columns (expected " << numColumns << ")\n";
-        }
-
-        csvData.push_back(row);
-    }
-
-    file.close();
-
-    // Final validation
-    if (csvData.empty()) {
-        std::cerr << "ERROR: No valid data found in CSV file.\n";
-        return false;
-    }
-
-    numRows = csvData.size();
-
-    // Ensure total number of pixels is even by adding a padding 0 if needed
-    size_t totalPixels = 0;
-    for (const auto& r : csvData) totalPixels += r.size();
-    if (totalPixels % 2 == 1) {
-        csvData.push_back(std::vector<uint8_t>{0});
-        numRows = csvData.size();
-        std::cout << "Note: Total pixels was odd. Added a padding 0 as the last pixel.\n";
-        totalPixels += 1;
-    }
-
-    std::cout << "Successfully loaded CSV:\n";
-    std::cout << "  - Rows: " << numRows << "\n";
-    std::cout << "  - Columns: " << numColumns << "\n";
-    std::cout << "  - Total pixels: " << totalPixels << "\n";
-    std::cout << "  - Total pairs: " << ((totalPixels + 1) / 2) << "\n\n";
-
-    return true;
-}
-
 // Get next pair of pixels
 std::pair<uint8_t, uint8_t> DataGenerationBlock::getNextPair() {
     uint8_t pixel1 = 0;
@@ -172,20 +173,21 @@ std::pair<uint8_t, uint8_t> DataGenerationBlock::getNextPair() {
         return {0, 0};
     }
 
-    // Skip any empty rows (defensive)
+    // Skip exhausted/empty rows so currentRow/currentCol always point to readable data.
     while (currentRow < csvData.size() && currentCol >= csvData[currentRow].size()) {
         currentRow++;
         currentCol = 0;
     }
 
     if (currentRow >= csvData.size()) {
+        // End-of-stream sentinel used by callers once isFinished() becomes true.
         return {0, 0};
     }
 
     const auto& row = csvData[currentRow];
     size_t rowSize = row.size();
 
-    // First pixel is always from the current position
+    // First pixel is always from the current cursor.
     pixel1 = row[currentCol];
 
     // If there's a next pixel in the same row, use it. Otherwise pad with 0
@@ -194,18 +196,14 @@ std::pair<uint8_t, uint8_t> DataGenerationBlock::getNextPair() {
         currentCol += 2;
 
         if (currentCol >= rowSize) {
-            // move to next row
+            // Consumed the row exactly: advance cursor to the next row start.
             currentRow++;
             currentCol = 0;
         }
     } else {
-        // Last element in the row. If number of columns is odd, pad with 0
-        if (numColumns % 2 == 1) {
-            pixel2 = 0;
-        } else {
-            // Fallback: pad with 0
-            pixel2 = 0;
-        }
+        // Row ended on an unpaired pixel; emit 0 as synthetic partner.
+        // This branch is also safe for ragged rows, regardless of declared numColumns.
+        pixel2 = 0;
 
         // Move to next row after padding
         currentRow++;

@@ -5,6 +5,8 @@
 #include <vector>       // For storing CSV data
 #include <string>       // For strings
 
+// DataGenerationBlock owns the input dataset and exposes it as a sequential stream of pixel pairs.
+// Source can be CSV or synthetic random data, but both are consumed through getNextPair().
 class DataGenerationBlock {
 private:
     // CSV data storage

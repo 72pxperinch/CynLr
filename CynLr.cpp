@@ -4,6 +4,8 @@
 #include "FilterBlock.h"
 
 int main(int argc, char* argv[]) {
+    // This executable is an interactive integration test for DataGenerationBlock + FilterBlock.
+    // It lets you pick a data source, streams pixel pairs, then runs the same stream through the filter.
     std::cout << "========================================\n";
     std::cout << "  Data Generation Block - TEST\n";
     std::cout << "========================================\n\n";
@@ -27,7 +29,8 @@ int main(int argc, char* argv[]) {
         std::cout << "Exiting application. Goodbye!\n";
         return 0;
     } else if (choice == "1") {
-        // CSV mode
+        // CSV mode: keep prompting until we get a file with valid geometry,
+        // or the user switches to random mode / exits.
         std::string defaultFile = "sample_input.csv";
         if (argc > 1) {
             defaultFile = argv[1];
@@ -44,7 +47,7 @@ int main(int argc, char* argv[]) {
                 filename = defaultFile;
             }
 
-            // Try loading; allow retry on failure
+            // Retry file loading until success or explicit cancel.
             while (!dataGen.loadCSV(filename.c_str())) {
                 std::cout << "Failed to load '" << filename << "'.\n";
                 std::cout << "Enter another filename or press Enter to cancel: ";
@@ -57,7 +60,7 @@ int main(int argc, char* argv[]) {
                 }
             }
 
-            // Check if columns meet minimum requirement
+            // FilterBlock requires enough horizontal context: minimum 10 columns.
             if (dataGen.getNumColumns() < 10) {
                 std::cout << "CSV file has " << dataGen.getNumColumns() << " columns, but at least 10 are required.\n";
                 std::cout << "Options:\n";
@@ -81,6 +84,7 @@ int main(int argc, char* argv[]) {
                 dataGen.reset();
                 std::cout << "\n";
             } else if (dataGen.getNumColumns() % 2 != 0) {
+                // Main test path expects even-width rows so pairs align cleanly per row.
                 std::cout << "CSV file has " << dataGen.getNumColumns() << " columns, but must be even.\n";
                 std::cout << "Options:\n";
                 std::cout << "  1) Try another CSV file\n";
@@ -113,7 +117,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (choice == "2") {
-        // Random mode
+        // Random mode: synthesize image-like data that satisfies FilterBlock constraints.
         int rows = 0, cols = 0;
 
         while (rows <= 0) {
@@ -150,7 +154,7 @@ int main(int argc, char* argv[]) {
     std::cout << "  m (columns): " << dataGen.getNumColumns() << "\n";
     std::cout << "  rows: " << dataGen.getNumRows() << "\n\n";
 
-    // Test: Get first 20 pairs
+    // Phase 1: quick sanity view of the first streamed pairs.
     std::cout << "========================================\n";
     std::cout << "  First 20 Pixel Pairs:\n";
     std::cout << "========================================\n\n";
@@ -174,7 +178,7 @@ int main(int argc, char* argv[]) {
 
     std::cout << "After reset, first pair: [" << (int)first1 << ", " << (int)first2 << "]\n";
 
-    // Process ALL pixels and count them
+    // Phase 2: consume the entire source once and collect simple counters.
     std::cout << "\n========================================\n";
     std::cout << "  Processing All Pixels\n";
     std::cout << "========================================\n\n";
@@ -194,14 +198,14 @@ int main(int argc, char* argv[]) {
     std::cout << "Total pairs processed: " << pairCount << "\n";
     std::cout << "Total pixels counted: " << pixelCount << "\n\n";
 
-    // Now test the Filter Block
+    // Phase 3: feed the same pair stream into FilterBlock and display behavior.
     std::cout << "========================================\n";
     std::cout << "  Filter Block - TEST\n";
     std::cout << "========================================\n\n";
 
     FilterBlock filter;
 
-    // Initialize filter with number of columns (per row is independent)
+    // Each row is filtered independently; initialize() sets row-local limits and window math.
     filter.initialize(dataGen.getNumColumns());
 
     dataGen.reset();
@@ -217,6 +221,7 @@ int main(int argc, char* argv[]) {
     std::vector<std::pair<uint8_t, uint8_t>> filteredResults;
     bool showDetailedOutput = true;
 
+    // Main streaming loop: one input pair in, optional filtered pair out.
     while (!dataGen.isFinished()) {
         pairNum++;
         cycleNum++;
@@ -248,7 +253,7 @@ int main(int argc, char* argv[]) {
             filteredResults.push_back(filteredPair);
         }
 
-        // Check if we're at end of row
+        // End-of-row is detected in pair space, then FilterBlock is explicitly flushed/reset for that row.
         if (pairNum == pairsPerRow) {
             // Capture endOfRow results
             auto endRowResults = filter.endOfRow();
@@ -276,7 +281,8 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    // Process any remaining pairs after loop ends
+    // Defensive tail pass: normally no-op because the main loop drains the generator,
+    // but kept to avoid dropping data if loop structure changes in the future.
     while (!dataGen.isFinished()) {
         pairNum++;
         cycleNum++;
@@ -310,7 +316,7 @@ int main(int argc, char* argv[]) {
     std::cout << "  Test Complete!\n";
     std::cout << "========================================\n\n";
 
-    // Main menu loop
+    // Simple menu loop to end or manually rerun by restarting the executable.
     while (true) {
         std::cout << "Options:\n";
         std::cout << "  1) Run another test with different data\n";

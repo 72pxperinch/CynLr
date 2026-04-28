@@ -4,6 +4,9 @@
 #include <queue>            // For storing pairs
 #include <vector>           // For storing arrays
 
+// FilterBlock consumes pixel pairs in stream order and outputs filtered pairs when a
+// full local neighborhood is available. Filtering is row-local; caller must signal
+// row boundaries with endOfRow() so context never leaks across rows.
 class FilterBlock {
 private:
     // Kernel coefficients for filtering (9 elements)
