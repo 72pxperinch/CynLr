@@ -40,11 +40,21 @@ bool DataGenerationBlock::loadRandom(int rows, int cols) {
     currentRow = 0;
     currentCol = 0;
 
+    // Ensure total number of pixels is even by adding a padding 0 if needed
+    size_t totalPixels = static_cast<size_t>(numRows) * static_cast<size_t>(numColumns);
+    if (totalPixels % 2 == 1) {
+        // Add a small row with a single 0 so getNextPair will see an extra pixel
+        csvData.push_back(std::vector<uint8_t>{0});
+        numRows = csvData.size();
+        totalPixels += 1;
+        std::cout << "Note: Total pixels was odd. Added a padding 0 as the last pixel.\n";
+    }
+
     std::cout << "Generated random data:\n";
     std::cout << "  - Rows: " << numRows << "\n";
     std::cout << "  - Columns: " << numColumns << "\n";
-    std::cout << "  - Total pixels: " << (numRows * numColumns) << "\n";
-    std::cout << "  - Total pairs: " << ((numRows * numColumns + 1) / 2) << "\n\n";
+    std::cout << "  - Total pixels: " << totalPixels << "\n";
+    std::cout << "  - Total pairs: " << ((totalPixels + 1) / 2) << "\n\n";
 
     return true;
 }
@@ -132,11 +142,21 @@ bool DataGenerationBlock::loadCSV(const char* filename) {
 
     numRows = csvData.size();
 
+    // Ensure total number of pixels is even by adding a padding 0 if needed
+    size_t totalPixels = 0;
+    for (const auto& r : csvData) totalPixels += r.size();
+    if (totalPixels % 2 == 1) {
+        csvData.push_back(std::vector<uint8_t>{0});
+        numRows = csvData.size();
+        std::cout << "Note: Total pixels was odd. Added a padding 0 as the last pixel.\n";
+        totalPixels += 1;
+    }
+
     std::cout << "Successfully loaded CSV:\n";
     std::cout << "  - Rows: " << numRows << "\n";
     std::cout << "  - Columns: " << numColumns << "\n";
-    std::cout << "  - Total pixels: " << (numRows * numColumns) << "\n";
-    std::cout << "  - Total pairs: " << ((numRows * numColumns + 1) / 2) << "\n\n";
+    std::cout << "  - Total pixels: " << totalPixels << "\n";
+    std::cout << "  - Total pairs: " << ((totalPixels + 1) / 2) << "\n\n";
 
     return true;
 }
