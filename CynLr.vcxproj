@@ -184,11 +184,15 @@
   <ItemGroup>
     <ClCompile Include="CynLr.cpp" />
     <ClCompile Include="DataGeneration.cpp" />
+    <ClCompile Include="FilterBlock.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DataGeneration.h" />
+    <ClInclude Include="FilterBlock.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="FILTERBLOCK_README.md" />
+    <None Include="IMPLEMENTATION_SUMMARY.md" />
     <None Include="sample_input.csv" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

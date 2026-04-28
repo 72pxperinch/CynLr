@@ -24,9 +24,15 @@
     <ClCompile Include="DataGeneration.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="FilterBlock.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DataGeneration.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="FilterBlock.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -34,5 +40,7 @@
     <None Include="sample_input.csv">
       <Filter>Data</Filter>
     </None>
+    <None Include="FILTERBLOCK_README.md" />
+    <None Include="IMPLEMENTATION_SUMMARY.md" />
   </ItemGroup>
 </Project>

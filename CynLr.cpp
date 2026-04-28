@@ -1,5 +1,6 @@
 #include <iostream>
 #include "DataGeneration.h"
+#include "FilterBlock.h"
 
 int main(int argc, char* argv[]) {
     std::cout << "========================================\n";
@@ -126,6 +127,86 @@ int main(int argc, char* argv[]) {
 
     std::cout << "Total pairs processed: " << pairCount << "\n";
     std::cout << "Total pixels counted: " << pixelCount << "\n\n";
+
+    // Now test the Filter Block
+    std::cout << "========================================\n";
+    std::cout << "  Filter Block - TEST\n";
+    std::cout << "========================================\n\n";
+
+    FilterBlock filter;
+
+    // Initialize filter with number of columns (per row is independent)
+    filter.initialize(dataGen.getNumColumns());
+
+    dataGen.reset();
+
+    std::cout << "Processing pairs through FilterBlock...\n";
+    std::cout << "Row | Pair | DataGen Pair | Filter Output | Buffer Size\n";
+    std::cout << "----+------+--------------+---------------+-------------\n";
+
+    int currentRow = 0;
+    int pairNum = 0;
+    std::vector<std::pair<uint8_t, uint8_t>> filteredResults;
+
+    while (!dataGen.isFinished()) {
+        pairNum++;
+        auto dataPair = dataGen.getNextPair();
+        auto [dp1, dp2] = dataPair;
+
+        // Add pair to filter and get result if available
+        auto filteredPair = filter.addPairAndFilter(dataPair);
+        auto [fp1, fp2] = filteredPair;
+
+        // Check if we're at end of row
+        if (pairNum % (dataGen.getNumColumns() / 2 + 1) == 0 || 
+            (dataGen.getNumColumns() % 2 == 1 && pairNum % ((dataGen.getNumColumns() + 1) / 2) == 0)) {
+            filter.endOfRow();
+
+            printf("%4d | (end of row) | -----------   | ------------- | (cleared)\n", currentRow);
+
+            if (pairNum < 20) {
+                currentRow++;
+                pairNum = 0;
+            } else {
+                std::cout << "  ... (continuing) ...\n";
+                break;
+            }
+        } else if (pairNum <= 15) {
+            // Print first 15 pairs per row
+            if (fp1 != 0 || fp2 != 0) {
+                printf("%4d | %4d | [%3d, %3d]   | [%3d, %3d]    | %11zu\n",
+                    currentRow, pairNum, dp1, dp2, fp1, fp2, filter.getBufferSize());
+                filteredResults.push_back(filteredPair);
+            } else {
+                printf("%4d | %4d | [%3d, %3d]   | (buffering)   | %11zu\n",
+                    currentRow, pairNum, dp1, dp2, filter.getBufferSize());
+            }
+        }
+    }
+
+    // Continue processing remaining pairs without detailed output
+    while (!dataGen.isFinished()) {
+        pairNum++;
+        auto dataPair = dataGen.getNextPair();
+        auto filteredPair = filter.addPairAndFilter(dataPair);
+
+        if (filteredPair.first != 0 || filteredPair.second != 0) {
+            filteredResults.push_back(filteredPair);
+        }
+
+        // Check if we're at end of row
+        if (pairNum % ((dataGen.getNumColumns() + 1) / 2) == 0) {
+            filter.endOfRow();
+            currentRow++;
+            pairNum = 0;
+        }
+    }
+
+    std::cout << "\nTotal filtered pairs produced: " << filteredResults.size() << "\n";
+    std::cout << "Columns per row: " << dataGen.getNumColumns() << "\n";
+    std::cout << "Pairs per row: " << ((dataGen.getNumColumns() + 1) / 2) << "\n";
+    std::cout << "Filter block cycles: " << filter.getCycleCount() << "\n";
+    std::cout << "Final buffer size: " << filter.getBufferSize() << "\n\n";
 
     std::cout << "========================================\n";
     std::cout << "  Test Complete!\n";
