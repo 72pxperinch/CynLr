@@ -1,7 +1,7 @@
 #include <iostream>
 #include "DataGeneration.h"
 
-int main() {
+int main(int argc, char* argv[]) {
     std::cout << "========================================\n";
     std::cout << "  Data Generation Block - TEST\n";
     std::cout << "========================================\n\n";
@@ -9,15 +9,34 @@ int main() {
     // Create the data generation block
     DataGenerationBlock dataGen;
 
-    // Load CSV file
-    const char* filename = "sample_input.csv";
-    std::cout << "Loading CSV file: " << filename << "\n\n";
-
-    if (!dataGen.loadCSV(filename)) {
-        std::cout << "\nPress Enter to exit...";
-        std::cin.get();
-        return 1;
+    // Determine CSV file to load: interactive prompt (press Enter to use default)
+    std::string defaultFile = "sample_input.csv";
+    if (argc > 1) {
+        defaultFile = argv[1];
     }
+
+    std::string filename;
+    std::cout << "Enter CSV filename to load (press Enter to use '" << defaultFile << "'): ";
+    std::getline(std::cin, filename);
+
+    if (filename.empty()) {
+        filename = defaultFile;
+    }
+
+    // Try loading; allow retry on failure
+    while (!dataGen.loadCSV(filename.c_str())) {
+        std::cout << "Failed to load '" << filename << "'.\n";
+        std::cout << "Enter another filename or press Enter to cancel: ";
+        std::getline(std::cin, filename);
+
+        if (filename.empty()) {
+            std::cout << "Canceled. Press Enter to exit...";
+            std::cin.get();
+            return 1;
+        }
+    }
+
+    std::cout << "Loading CSV file: " << filename << "\n\n";
 
     // Display detected parameters
     std::cout << "Detected parameters:\n";
