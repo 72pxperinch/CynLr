@@ -42,4 +42,5 @@ public:
 
     // Check if we've processed all data
     bool isFinished() const;
-};#pragma once
+};
+
