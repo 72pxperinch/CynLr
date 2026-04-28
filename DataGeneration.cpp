@@ -2,10 +2,51 @@
 #include <iostream>
 #include <sstream>
 #include <algorithm>
+#include <random>
 
 // Constructor - initialize everything
 DataGenerationBlock::DataGenerationBlock()
     : currentRow(0), currentCol(0), numColumns(0), numRows(0) {
+}
+
+// Generate random data
+bool DataGenerationBlock::loadRandom(int rows, int cols) {
+    if (rows <= 0 || cols <= 0) {
+        std::cerr << "ERROR: rows and cols must be > 0\n";
+        return false;
+    }
+
+    csvData.clear();
+    csvData.reserve(rows);
+
+    // Setup random generator for 0-255
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(0, 255);
+
+    for (int r = 0; r < rows; ++r) {
+        std::vector<uint8_t> row;
+        row.reserve(cols);
+
+        for (int c = 0; c < cols; ++c) {
+            row.push_back(static_cast<uint8_t>(dis(gen)));
+        }
+
+        csvData.push_back(std::move(row));
+    }
+
+    numRows = rows;
+    numColumns = cols;
+    currentRow = 0;
+    currentCol = 0;
+
+    std::cout << "Generated random data:\n";
+    std::cout << "  - Rows: " << numRows << "\n";
+    std::cout << "  - Columns: " << numColumns << "\n";
+    std::cout << "  - Total pixels: " << (numRows * numColumns) << "\n";
+    std::cout << "  - Total pairs: " << ((numRows * numColumns + 1) / 2) << "\n\n";
+
+    return true;
 }
 
 // Parse one line of CSV into a vector of uint8_t values

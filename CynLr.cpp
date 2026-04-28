@@ -9,34 +9,74 @@ int main(int argc, char* argv[]) {
     // Create the data generation block
     DataGenerationBlock dataGen;
 
-    // Determine CSV file to load: interactive prompt (press Enter to use default)
-    std::string defaultFile = "sample_input.csv";
-    if (argc > 1) {
-        defaultFile = argv[1];
-    }
+    // Let user choose between CSV or Random mode
+    std::cout << "Choose input mode:\n";
+    std::cout << "  1) CSV file\n";
+    std::cout << "  2) Random mode\n";
+    std::cout << "Enter choice (1 or 2, press Enter for 1): ";
 
-    std::string filename;
-    std::cout << "Enter CSV filename to load (press Enter to use '" << defaultFile << "'): ";
-    std::getline(std::cin, filename);
+    std::string choice;
+    std::getline(std::cin, choice);
 
-    if (filename.empty()) {
-        filename = defaultFile;
-    }
+    if (choice.empty()) choice = "1";
 
-    // Try loading; allow retry on failure
-    while (!dataGen.loadCSV(filename.c_str())) {
-        std::cout << "Failed to load '" << filename << "'.\n";
-        std::cout << "Enter another filename or press Enter to cancel: ";
+    if (choice == "1") {
+        // CSV mode
+        std::string defaultFile = "sample_input.csv";
+        if (argc > 1) {
+            defaultFile = argv[1];
+        }
+
+        std::string filename;
+        std::cout << "Enter CSV filename to load (press Enter to use '" << defaultFile << "'): ";
         std::getline(std::cin, filename);
 
         if (filename.empty()) {
-            std::cout << "Canceled. Press Enter to exit...";
-            std::cin.get();
+            filename = defaultFile;
+        }
+
+        // Try loading; allow retry on failure
+        while (!dataGen.loadCSV(filename.c_str())) {
+            std::cout << "Failed to load '" << filename << "'.\n";
+            std::cout << "Enter another filename or press Enter to cancel: ";
+            std::getline(std::cin, filename);
+
+            if (filename.empty()) {
+                std::cout << "Canceled. Press Enter to exit...";
+                std::cin.get();
+                return 1;
+            }
+        }
+
+        std::cout << "Loading CSV file: " << filename << "\n\n";
+    } else if (choice == "2") {
+        // Random mode
+        int rows = 0, cols = 0;
+
+        while (rows <= 0) {
+            std::cout << "Enter number of rows (>0): ";
+            std::string s;
+            std::getline(std::cin, s);
+            try { rows = std::stoi(s); } catch (...) { rows = 0; }
+            if (rows <= 0) std::cout << "Invalid value.\n";
+        }
+
+        while (cols <= 0) {
+            std::cout << "Enter number of columns (>0): ";
+            std::string s;
+            std::getline(std::cin, s);
+            try { cols = std::stoi(s); } catch (...) { cols = 0; }
+            if (cols <= 0) std::cout << "Invalid value.\n";
+        }
+
+        if (!dataGen.loadRandom(rows, cols)) {
+            std::cout << "Failed to generate random data. Exiting.\n";
             return 1;
         }
+    } else {
+        std::cout << "Invalid choice. Exiting.\n";
+        return 1;
     }
-
-    std::cout << "Loading CSV file: " << filename << "\n\n";
 
     // Display detected parameters
     std::cout << "Detected parameters:\n";

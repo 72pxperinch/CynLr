@@ -28,6 +28,9 @@ public:
     // Load CSV file and auto-detect columns
     bool loadCSV(const char* filename);
 
+    // Create random data with given rows and columns
+    bool loadRandom(int rows, int cols);
+
     // Get the next 2 pixels
     std::pair<uint8_t, uint8_t> getNextPair();
 
