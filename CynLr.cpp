@@ -1,4 +1,5 @@
 #include <iostream>
+#include <string>
 #include "DataGeneration.h"
 #include "FilterBlock.h"
 
@@ -14,14 +15,18 @@ int main(int argc, char* argv[]) {
     std::cout << "Choose input mode:\n";
     std::cout << "  1) CSV file\n";
     std::cout << "  2) Random mode\n";
-    std::cout << "Enter choice (1 or 2, press Enter for 1): ";
+    std::cout << "  3) Exit\n";
+    std::cout << "Enter choice (1, 2, or 3, press Enter for 1): ";
 
     std::string choice;
     std::getline(std::cin, choice);
 
     if (choice.empty()) choice = "1";
 
-    if (choice == "1") {
+    if (choice == "3") {
+        std::cout << "Exiting application. Goodbye!\n";
+        return 0;
+    } else if (choice == "1") {
         // CSV mode
         std::string defaultFile = "sample_input.csv";
         if (argc > 1) {
@@ -29,28 +34,85 @@ int main(int argc, char* argv[]) {
         }
 
         std::string filename;
-        std::cout << "Enter CSV filename to load (press Enter to use '" << defaultFile << "'): ";
-        std::getline(std::cin, filename);
+        bool validCols = false;
 
-        if (filename.empty()) {
-            filename = defaultFile;
-        }
-
-        // Try loading; allow retry on failure
-        while (!dataGen.loadCSV(filename.c_str())) {
-            std::cout << "Failed to load '" << filename << "'.\n";
-            std::cout << "Enter another filename or press Enter to cancel: ";
+        while (!validCols) {
+            std::cout << "Enter CSV filename to load (press Enter to use '" << defaultFile << "'): ";
             std::getline(std::cin, filename);
 
             if (filename.empty()) {
-                std::cout << "Canceled. Press Enter to exit...";
-                std::cin.get();
-                return 1;
+                filename = defaultFile;
+            }
+
+            // Try loading; allow retry on failure
+            while (!dataGen.loadCSV(filename.c_str())) {
+                std::cout << "Failed to load '" << filename << "'.\n";
+                std::cout << "Enter another filename or press Enter to cancel: ";
+                std::getline(std::cin, filename);
+
+                if (filename.empty()) {
+                    std::cout << "Canceled. Press Enter to exit...";
+                    std::cin.get();
+                    return 1;
+                }
+            }
+
+            // Check if columns meet minimum requirement
+            if (dataGen.getNumColumns() < 10) {
+                std::cout << "CSV file has " << dataGen.getNumColumns() << " columns, but at least 10 are required.\n";
+                std::cout << "Options:\n";
+                std::cout << "  1) Try another CSV file\n";
+                std::cout << "  2) Switch to Random mode\n";
+                std::cout << "  3) Exit application\n";
+                std::cout << "Enter choice (1, 2, or 3): ";
+
+                std::string modeChoice;
+                std::getline(std::cin, modeChoice);
+
+                if (modeChoice == "2") {
+                    std::cout << "\nSwitching to Random mode...\n\n";
+                    choice = "2";
+                    break;
+                } else if (modeChoice == "3") {
+                    std::cout << "Exiting application. Goodbye!\n";
+                    return 0;
+                }
+                // If "1" or invalid, loop continues to try another file
+                dataGen.reset();
+                std::cout << "\n";
+            } else if (dataGen.getNumColumns() % 2 != 0) {
+                std::cout << "CSV file has " << dataGen.getNumColumns() << " columns, but must be even.\n";
+                std::cout << "Options:\n";
+                std::cout << "  1) Try another CSV file\n";
+                std::cout << "  2) Switch to Random mode\n";
+                std::cout << "  3) Exit application\n";
+                std::cout << "Enter choice (1, 2, or 3): ";
+
+                std::string modeChoice;
+                std::getline(std::cin, modeChoice);
+
+                if (modeChoice == "2") {
+                    std::cout << "\nSwitching to Random mode...\n\n";
+                    choice = "2";
+                    break;
+                } else if (modeChoice == "3") {
+                    std::cout << "Exiting application. Goodbye!\n";
+                    return 0;
+                }
+                // If "1" or invalid, loop continues to try another file
+                dataGen.reset();
+                std::cout << "\n";
+            } else {
+                validCols = true;
             }
         }
 
-        std::cout << "Loading CSV file: " << filename << "\n\n";
-    } else if (choice == "2") {
+        if (choice != "2") {
+            std::cout << "Loading CSV file: " << filename << "\n\n";
+        }
+    }
+
+    if (choice == "2") {
         // Random mode
         int rows = 0, cols = 0;
 
@@ -62,12 +124,16 @@ int main(int argc, char* argv[]) {
             if (rows <= 0) std::cout << "Invalid value.\n";
         }
 
-        while (cols <= 0) {
-            std::cout << "Enter number of columns (>0): ";
+        while (cols < 10 || cols % 2 != 0) {
+            std::cout << "Enter number of columns (must be even and >= 10): ";
             std::string s;
             std::getline(std::cin, s);
             try { cols = std::stoi(s); } catch (...) { cols = 0; }
-            if (cols <= 0) std::cout << "Invalid value.\n";
+            if (cols < 10) {
+                std::cout << "Columns must be at least 10.\n";
+            } else if (cols % 2 != 0) {
+                std::cout << "Columns must be even.\n";
+            }
         }
 
         if (!dataGen.loadRandom(rows, cols)) {
@@ -146,7 +212,9 @@ int main(int argc, char* argv[]) {
 
     int currentRow = 0;
     int pairNum = 0;
+    int pairsPerRow = (dataGen.getNumColumns() + 1) / 2;
     std::vector<std::pair<uint8_t, uint8_t>> filteredResults;
+    bool showDetailedOutput = true;
 
     while (!dataGen.isFinished()) {
         pairNum++;
@@ -157,22 +225,8 @@ int main(int argc, char* argv[]) {
         auto filteredPair = filter.addPairAndFilter(dataPair);
         auto [fp1, fp2] = filteredPair;
 
-        // Check if we're at end of row
-        if (pairNum % (dataGen.getNumColumns() / 2 + 1) == 0 || 
-            (dataGen.getNumColumns() % 2 == 1 && pairNum % ((dataGen.getNumColumns() + 1) / 2) == 0)) {
-            filter.endOfRow();
-
-            printf("%4d | (end of row) | -----------   | ------------- | (cleared)\n", currentRow);
-
-            if (pairNum < 20) {
-                currentRow++;
-                pairNum = 0;
-            } else {
-                std::cout << "  ... (continuing) ...\n";
-                break;
-            }
-        } else if (pairNum <= 15) {
-            // Print first 15 pairs per row
+        // Display the pair if we're still showing detailed output
+        if (showDetailedOutput && pairNum <= 15) {
             if (fp1 != 0 || fp2 != 0) {
                 printf("%4d | %4d | [%3d, %3d]   | [%3d, %3d]    | %11zu\n",
                     currentRow, pairNum, dp1, dp2, fp1, fp2, filter.getBufferSize());
@@ -181,10 +235,43 @@ int main(int argc, char* argv[]) {
                 printf("%4d | %4d | [%3d, %3d]   | (buffering)   | %11zu\n",
                     currentRow, pairNum, dp1, dp2, filter.getBufferSize());
             }
+        } else if (showDetailedOutput && pairNum == 15) {
+            // Transition point - show ellipsis but still process
+            std::cout << "----+------+--------------+---------------+------------ ...\n";
+            showDetailedOutput = false;
+        }
+
+        // Always collect pairs (even if not displaying)
+        if (fp1 != 0 || fp2 != 0) {
+            filteredResults.push_back(filteredPair);
+        }
+
+        // Check if we're at end of row
+        if (pairNum == pairsPerRow) {
+            // Capture endOfRow results
+            auto endRowResults = filter.endOfRow();
+
+            // Display endOfRow output if still in detailed mode
+            if (showDetailedOutput) {
+                for (size_t i = 0; i < endRowResults.size(); i++) {
+                    auto [efp1, efp2] = endRowResults[i];
+                    printf("%4d | (END) | -----------   | [%3d, %3d]    | (cleared)\n",
+                        currentRow, efp1, efp2);
+                    filteredResults.push_back(endRowResults[i]);
+                }
+            } else {
+                // Still collect results but don't display
+                for (const auto& result : endRowResults) {
+                    filteredResults.push_back(result);
+                }
+            }
+
+            currentRow++;
+            pairNum = 0;
         }
     }
 
-    // Continue processing remaining pairs without detailed output
+    // Process any remaining pairs after loop ends
     while (!dataGen.isFinished()) {
         pairNum++;
         auto dataPair = dataGen.getNextPair();
@@ -195,8 +282,11 @@ int main(int argc, char* argv[]) {
         }
 
         // Check if we're at end of row
-        if (pairNum % ((dataGen.getNumColumns() + 1) / 2) == 0) {
-            filter.endOfRow();
+        if (pairNum == pairsPerRow) {
+            auto endRowResults = filter.endOfRow();
+            for (const auto& result : endRowResults) {
+                filteredResults.push_back(result);
+            }
             currentRow++;
             pairNum = 0;
         }
@@ -212,8 +302,29 @@ int main(int argc, char* argv[]) {
     std::cout << "  Test Complete!\n";
     std::cout << "========================================\n\n";
 
-    std::cout << "Press Enter to exit...";
-    std::cin.get();
+    // Main menu loop
+    while (true) {
+        std::cout << "Options:\n";
+        std::cout << "  1) Run another test with different data\n";
+        std::cout << "  2) Exit application\n";
+        std::cout << "Enter choice (1 or 2): ";
+
+        std::string menuChoice;
+        std::getline(std::cin, menuChoice);
+
+        if (menuChoice == "1") {
+            std::cout << "\nRestarting application...\n\n";
+            // Restart by returning to main and re-running (will be handled by calling code)
+            // For now, we'll just exit and let user restart manually
+            std::cout << "Please restart the application to run another test.\n";
+            break;
+        } else if (menuChoice == "2") {
+            std::cout << "\nExiting application. Goodbye!\n";
+            return 0;
+        } else {
+            std::cout << "Invalid choice. Please enter 1 or 2.\n\n";
+        }
+    }
 
     return 0;
 }
