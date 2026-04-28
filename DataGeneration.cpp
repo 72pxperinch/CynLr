@@ -1,6 +1,7 @@
 #include "DataGeneration.h"
 #include <iostream>
 #include <sstream>
+#include <algorithm>
 
 // Constructor - initialize everything
 DataGenerationBlock::DataGenerationBlock()
@@ -107,38 +108,50 @@ std::pair<uint8_t, uint8_t> DataGenerationBlock::getNextPair() {
     // Safety check
     if (csvData.empty()) {
         std::cerr << "ERROR: No CSV data loaded!\n";
-        return { 0, 0 };
+        return {0, 0};
     }
 
-    // Get first pixel
-    if (currentRow < csvData.size()) {
-        if (currentCol < csvData[currentRow].size()) {
-            pixel1 = csvData[currentRow][currentCol];
-            currentCol++;
+    // Skip any empty rows (defensive)
+    while (currentRow < csvData.size() && currentCol >= csvData[currentRow].size()) {
+        currentRow++;
+        currentCol = 0;
+    }
 
-            // Move to next row if we've finished this row
-            if (currentCol >= csvData[currentRow].size()) {
-                currentRow++;
-                currentCol = 0;
-            }
+    if (currentRow >= csvData.size()) {
+        return {0, 0};
+    }
+
+    const auto& row = csvData[currentRow];
+    size_t rowSize = row.size();
+
+    // First pixel is always from the current position
+    pixel1 = row[currentCol];
+
+    // If there's a next pixel in the same row, use it. Otherwise pad with 0
+    if (currentCol + 1 < rowSize) {
+        pixel2 = row[currentCol + 1];
+        currentCol += 2;
+
+        if (currentCol >= rowSize) {
+            // move to next row
+            currentRow++;
+            currentCol = 0;
         }
-    }
-
-    // Get second pixel (might be from next row if we're at row boundary)
-    if (currentRow < csvData.size()) {
-        if (currentCol < csvData[currentRow].size()) {
-            pixel2 = csvData[currentRow][currentCol];
-            currentCol++;
-
-            // Move to next row if we've finished this row
-            if (currentCol >= csvData[currentRow].size()) {
-                currentRow++;
-                currentCol = 0;
-            }
+    } else {
+        // Last element in the row. If number of columns is odd, pad with 0
+        if (numColumns % 2 == 1) {
+            pixel2 = 0;
+        } else {
+            // Fallback: pad with 0
+            pixel2 = 0;
         }
+
+        // Move to next row after padding
+        currentRow++;
+        currentCol = 0;
     }
 
-    return { pixel1, pixel2 };
+    return {pixel1, pixel2};
 }
 
 // Reset to beginning
